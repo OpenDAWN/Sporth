@@ -2,24 +2,23 @@
 #include <stdio.h>
 #include <string.h>
 #include "sporth.h"
+#include "ling.h"
 
 enum {
     SPACE,
-    STRING,
     SEEK,
     COMMENT,
     LEX_START,
     LEX_FLOAT,
     LEX_FLOAT_DOT,
     LEX_FLOAT_POSTDOT,
-    LEX_STRING,
     LEX_FUNC,
     LEX_ERROR,
     LEX_IGNORE,
     LEX_DASH
 };
 
-char * sporth_tokenizer(sporth_data *sporth, char *str,
+char * ling_tokenizer(ling_data *ld, char *str,
         uint32_t size, uint32_t *pos)
 {
     char c;
@@ -37,12 +36,6 @@ char * sporth_tokenizer(sporth_data *sporth, char *str,
                     case ' ':
                         mode = SPACE;
                         *pos = *pos + 1;
-                        break;
-                    case '\'':
-                    case '"':
-                        mode = STRING;
-                        *pos = *pos + 1;
-                        offset++;
                         break;
                     case '#':
                         mode = COMMENT;
@@ -63,20 +56,6 @@ char * sporth_tokenizer(sporth_data *sporth, char *str,
                         break;
                 }
                 break;
-            case STRING:
-                switch(c) {
-                    case '\'':
-                    case '"':
-                        mode = SPACE;
-                        *pos = *pos + 1;
-                        offset++;
-                        break;
-                    default:
-                        *pos = *pos + 1;
-                        offset++;
-                        break;
-                }
-                break;
             case COMMENT:
                 *pos = *pos + 1;
                 break;
@@ -85,13 +64,14 @@ char * sporth_tokenizer(sporth_data *sporth, char *str,
                 break;
         }
     }
+    /* TODO: make it so malloc is not needed */
     out = malloc(sizeof(char) * offset + 1);
     strncpy(out, &str[prev], offset);
     out[offset] = '\0';
     return out;
 }
 
-int sporth_lexer(sporth_data *sporth, char *str, int32_t size)
+int ling_lexer(ling_data *ld, char *str, int32_t size)
 {
     char c;
     int mode = LEX_START;
@@ -115,10 +95,6 @@ int sporth_lexer(sporth_data *sporth, char *str, int32_t size)
                     case '8':
                     case '9':
                         mode = LEX_FLOAT;
-                        break;
-                    case '"':
-                    case '\'':
-                        mode = LEX_STRING;
                         break;
                     case '#':
                         mode = LEX_IGNORE;
@@ -185,8 +161,6 @@ int sporth_lexer(sporth_data *sporth, char *str, int32_t size)
                         return LEX_ERROR;
                 }
                 break;
-            case LEX_STRING:
-                break;
             case LEX_FUNC:
                 break;
             case LEX_IGNORE:
@@ -200,20 +174,18 @@ int sporth_lexer(sporth_data *sporth, char *str, int32_t size)
         case LEX_FLOAT:
         case LEX_FLOAT_DOT:
         case LEX_FLOAT_POSTDOT:
-            return SPORTH_FLOAT;
-        case LEX_STRING:
-            return SPORTH_STRING;
+            return LING_INT;
         case LEX_IGNORE:
-            return SPORTH_IGNORE;
+            return LING_IGNORE;
         case LEX_DASH:
         case LEX_FUNC:
-            return SPORTH_FUNC;
+            return LING_FUNC;
         case LEX_START:
             if(size == 0) {
-                return SPORTH_IGNORE;
+                return LING_IGNORE;
             }
         default:
-            return SPORTH_NOTOK;
+            return LING_NOTOK;
     }
-    return SPORTH_NOTOK;
+    return LING_NOTOK;
 }

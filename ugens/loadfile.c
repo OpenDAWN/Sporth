@@ -3,45 +3,41 @@
 #include <string.h>
 #include "plumber.h"
 
-int sporth_gen_line(sporth_stack *stack, void *ud)
+int sporth_loadfile(sporth_stack *stack, void *ud)
 {
     plumber_data *pd = ud;
 
-    int size;
     sp_ftbl *ft;
     char *str;
-    char *args;
+    char *filename;
 
     switch(pd->mode){
         case PLUMBER_CREATE:
-            plumber_add_module(pd, SPORTH_GEN_LINE, 0, NULL);
+            plumber_add_module(pd, SPORTH_LOADFILE, 0, NULL);
             break;
 
         case PLUMBER_INIT:
-            if(sporth_check_args(stack, "sfs") != SPORTH_OK) {
+            if(sporth_check_args(stack, "ss") != SPORTH_OK) {
                 fprintf(stderr, "Init: not enough arguments for gen_line\n");
                 return PLUMBER_NOTOK;
             }
 
-            args = sporth_stack_pop_string(stack);
-            size = (int)sporth_stack_pop_float(stack);
+            filename = sporth_stack_pop_string(stack);
             str = sporth_stack_pop_string(stack);
 #ifdef DEBUG_MODE
             fprintf(stderr, "Creating line table %s of size %d\n", str, size);
 #endif
-            sp_ftbl_create(pd->sp, &ft, size);
-            if(sp_gen_line(pd->sp, ft, args) == SP_NOT_OK) {
-                fprintf(stderr, "There was an issue creating the line ftable \"%s\".\n", str);
+            if(sp_ftbl_loadfile(pd->sp, &ft, filename) == SP_NOT_OK) {
+                fprintf(stderr, "There was an issue creating the ftable \"%s\".\n", str);
                 stack->error++;
                 return PLUMBER_NOTOK;
             }
             plumber_ftmap_add(pd, str, ft);
             free(str);
-            free(args);
+            free(filename);
             break;
 
         case PLUMBER_COMPUTE:
-            size = (int)sporth_stack_pop_float(stack);
             break;
 
         case PLUMBER_DESTROY:

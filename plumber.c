@@ -66,6 +66,7 @@ int plumber_init(plumber_data *plumb)
     sporth_stack_init(&plumb->sporth.stack);
     plumber_ftmap_init(plumb);
     plumb->seed = time(NULL);
+    plumb->fp = NULL;
     int pos;
     for(pos = 0; pos < 16; pos++) plumb->p[pos] = 0;
     for(pos = 0; pos < 16; pos++) plumb->f[pos] = sporth_f_default;
@@ -110,11 +111,9 @@ int plumber_show_pipes(plumber_data *plumb)
     plumber_pipe *pipe = plumb->root.next, *next;
     uint32_t n;
     float *fval;
-    int rc;
-    sporth_data *sporth = &plumb->sporth;
     for(n = 0; n < plumb->npipes; n++) {
         next = pipe->next;
-       fprintf(stderr,"type = %d size = %d", pipe->type, pipe->size);
+       fprintf(stderr,"type = %d size = %ld", pipe->type, (long)pipe->size);
         if(pipe->type == SPORTH_FLOAT) {
             fval = pipe->ud;
            fprintf(stderr," val = %g\n", *fval);
@@ -147,7 +146,7 @@ int plumber_clean(plumber_data *plumb)
     sporth_htable_destroy(&plumb->sporth.dict);
     plumber_pipes_destroy(plumb);
     plumber_ftmap_destroy(plumb);
-    fclose(plumb->fp);
+    if(plumb->fp != NULL) fclose(plumb->fp);
     free(plumb->sporth.flist);
     return PLUMBER_OK;
 }
@@ -224,13 +223,11 @@ int plumber_add_module(plumber_data *plumb,
 int plumber_parse_string(plumber_data *plumb, char *str)
 {
     char *out, *tmp;
-    uint32_t prev = 0, pos = 0, offset = 0, len = 0;
+    uint32_t pos = 0, len = 0;
     uint32_t size = strlen(str);
 
     pos = 0;
-    offset = 0;
     len = 0;
-    prev = 0;
     while(pos < size) {
         out = sporth_tokenizer(&plumb->sporth, str, size, &pos);
         len = strlen(out);
@@ -280,13 +277,11 @@ int plumber_parse(plumber_data *plumb)
     size_t length = 0;
     ssize_t read;
     char *out, *tmp;
-    uint32_t prev = 0, pos = 0, offset = 0, len = 0;
+    uint32_t pos = 0, len = 0;
     plumb->mode = PLUMBER_CREATE;
     while((read = getline(&line, &length, fp)) != -1) {
         pos = 0;
-        offset = 0;
         len = 0;
-        prev = 0;
         while(pos < read - 1) {
             out = sporth_tokenizer(&plumb->sporth, line, read - 1, &pos);
             len = strlen(out);
@@ -465,6 +460,7 @@ int plumber_register(plumber_data *plumb)
     sporth_func *flist2 = malloc(sizeof(sporth_func) * plumb->sporth.nfunc);
     flist2 = memcpy(flist2, flist, sizeof(sporth_func) * plumb->sporth.nfunc);
     plumb->sporth.flist = flist2;
+    return PLUMBER_OK;
 }
 
 static uint32_t str2time(plumber_data *pd, char *str)
@@ -487,18 +483,17 @@ void sporth_run(plumber_data *pd, int argc, char *argv[],
 {
     char filename[60];
     sprintf(filename, "test.wav");
-    unsigned long len = 5 * 44100;
     int sr = 44100;
     int nchan = 1;
     char *time = NULL;
-    *argv++;
+    argv++;
     argc--;
     int driver = DRIVER_FILE;
     while(argc > 0 && argv[0][0] == '-') {
         switch(argv[0][1]){
             case 'd':
                 if(--argc) {
-                    *argv++;
+                    argv++;
 #ifdef DEBUG_MODE
                    fprintf(stderr,"setting duration to %s\n", argv[0]);
 #endif
@@ -510,7 +505,7 @@ void sporth_run(plumber_data *pd, int argc, char *argv[],
                 break;
             case 'o':
                 if(--argc) {
-                    *argv++;
+                    argv++;
                     if(!strcmp(argv[0], "raw")) {
                         driver = DRIVER_RAW;
                     } else {
@@ -526,7 +521,7 @@ void sporth_run(plumber_data *pd, int argc, char *argv[],
                 break;
             case 'r':
                 if(--argc) {
-                    *argv++;
+                    argv++;
 #ifdef DEBUG_MODE
                    fprintf(stderr,"setting samplerate to %s\n", argv[0]);
 #endif
@@ -538,7 +533,7 @@ void sporth_run(plumber_data *pd, int argc, char *argv[],
                 break;
             case 'c':
                 if(--argc) {
-                    *argv++;
+                    argv++;
 #ifdef DEBUG_MODE
                    fprintf(stderr,"setting nchannels to %s\n", argv[0]);
 #endif
@@ -550,7 +545,7 @@ void sporth_run(plumber_data *pd, int argc, char *argv[],
                 break;
             case 'b':
                 if(--argc) {
-                    *argv++;
+                    argv++;
                     if (!strcmp(argv[0], "file")) {
                         driver = DRIVER_FILE;
                     } else if ((!strcmp(argv[0], "raw"))) {
@@ -573,7 +568,7 @@ void sporth_run(plumber_data *pd, int argc, char *argv[],
                 exit(1);
                 break;
         }
-        *argv++;
+        argv++;
         argc--;
     }
 
